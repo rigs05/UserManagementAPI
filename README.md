@@ -20,7 +20,7 @@
             Fields: { name, password }
 
 NOTE: JWT Token is generated at Login and sent through response.
-Store it in Headers under 'Authorization': 'Bearer <\token>'
+Store it in Headers under "Authorization": "Bearer <token_string>"
 
 #### BELOW ENDPOINTS REQUIRE AUTHORIZATION HEADER TO BE DEFINED:
 
