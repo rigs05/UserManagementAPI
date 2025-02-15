@@ -3,17 +3,21 @@ import { User } from "../database/models/userModel";
 import { hashPassword } from "../utils/hashPassword";
 import * as jwt from "jsonwebtoken";
 import "dotenv/config";
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET_KEY: string = process.env.JWT_SECRET_KEY as string;
+if (!JWT_SECRET_KEY) {
+  throw new Error("JWT_SECRET is not defined in the environment variables.");
+}
 import * as bcrypt from "bcrypt";
+import { SignupInterface } from "../interfaces/SignupInterface";
 
 // Create User
 export const userSignup = async (req: Request, res: Response) => {
   try {
-    const { name, email, password } = req.body;
-    const { role: userType } = req.body.role;
+    const { name, email, password, isAdmin } = req.body;
+
     // Check for existing user
-    const isUserExists = await User.findOne({ email });
-    if (isUserExists) {
+    const ifUserExists = await User.findOne({ email });
+    if (ifUserExists) {
       res.status(200).json({
         message: "User with this email already exists, please Login.",
       });
@@ -21,8 +25,14 @@ export const userSignup = async (req: Request, res: Response) => {
     }
     /** Validate the input **/
     const passHash = await hashPassword(password);
+    const InsertData: SignupInterface = {
+      name,
+      email,
+      password: passHash,
+      isAdmin,
+    };
     // Insert data into db
-    const newUser = new User({ name, email, password: passHash, userType });
+    const newUser = new User(InsertData);
     await newUser.save();
     res
       .status(200)
@@ -46,23 +56,19 @@ export const userLogin = async (req: Request, res: Response) => {
     }
 
     // verify credentials
-    bcrypt.compare(password, isUserExists.password, (err, result) => {
-      if (err) {
-        res
-          .status(401)
-          .json({ message: "Invalid password. Please try again." });
-        return;
-      }
-    });
+    const isMatch = await bcrypt.compare(password, isUserExists.password);
+    if (!isMatch) {
+      res
+        .status(401)
+        .json({ message: "Incorrect password. Please try again." });
+      return;
+    }
 
-    // generate jwt token and login
+    // generate jwt token and login (token expires in 1hr from creation)
     jwt.sign(
       { email },
-      JWT_SECRET as string,
-      {
-        algorithm: "RS256",
-        expiresIn: "1h",
-      },
+      JWT_SECRET_KEY,
+      { expiresIn: "1h" },
       function (err, token) {
         if (err) {
           console.error("Error while creating JWT token.");
